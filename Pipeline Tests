@@ -1,0 +1,278 @@
+
+
+ ROM (rwx) : ORIGIN = 0x00000000, LENGTH = 0x1000000
+    RAM (rwx) : ORIGIN = 0x01000000, LENGTH = 0x1000000
+-----------------------------------
+
+
+1.Simple Test of write back and ALU:
+
+
+.global _boot
+.text
+_boot:
+
+    addi x1, x0, 1000
+    addi x2, x0, 2000
+    addi x4, x0, 100
+    addi x4, x0, 200
+    addi x4, x0, 300
+    addi x4, x0, 400
+    sub  x2, x2, x1
+    addi x4, x0, 500
+    addi x4, x0, 600
+    addi x4, x0, 700
+    addi x4, x0, 800
+    sub  x2, x2, x1
+   
+
+binary:
+3e800093
+7d000113
+06400213
+0c800213
+12c00213
+19000213
+40110133
+1f400213
+25800213
+2bc00213
+32000213
+40110133
+
+----------------------------
+2.Same as the top But changed in destination registers:
+
+.global _boot
+.text
+_boot:
+
+    addi x1, x0, 1000
+    addi x2, x0, 2000
+    addi x5, x0, 100
+    addi x6, x0, 200
+    addi x7, x0, 300
+    addi x8, x0, 400
+    sub  x2, x2, x1
+    addi x9, x0, 500
+    addi x10, x0, 600
+    addi x11, x0, 700
+    addi x12, x0, 800
+    sub  x2, x2, x1
+
+binary:
+3e800093
+7d000113
+06400293
+0c800313
+12c00393
+19000413
+40110133
+1f400493
+25800513
+2bc00593
+32000613
+40110133
+
+------------------------------
+3.The least span of Data Dependence(The Write Back of previous instruction has been done when next instruction read(Decode) the source register)
+
+.global _boot
+.text
+_boot:
+
+    addi x1, x0, 1000
+    addi x2, x0, 2000
+    addi x5, x0, 100
+    addi x6, x0, 200
+    addi x7, x0, 300
+    sub  x2, x2, x1
+    addi x8, x0, 400
+    addi x9, x0, 500
+    addi x10, x0, 600
+    sub  x2, x2, x1
+
+-----------------------------
+4.Branch and loop(2 times jump):
+
+.global _boot
+.text
+
+_boot:
+
+    addi x2, x0, 1000
+    addi x3, x0, 2000
+    addi x4, x0, 100
+    addi x4, x0, 200
+    addi x4, x0, 300
+
+_test:
+    sub  x3, x3, x2
+    addi x4, x0, 100
+    addi x4, x0, 200
+    addi x4, x0, 300
+    bgez x3, _test
+
+
+
+binary:
+3e800113
+7d000193
+06400213
+0c800213
+12c00213
+402181b3
+06400213
+0c800213
+12c00213
+fe01d8e3
+
+-----------------------------
+5.Branch and loop(4 times jump):
+
+.global _boot
+.text
+
+_boot:
+
+    addi x2, x0, 100
+    addi x3, x0, 400
+    addi x4, x0, 100
+    addi x4, x0, 200
+    addi x4, x0, 300
+
+_test:
+    sub  x3, x3, x2
+    addi x4, x0, 100
+    addi x4, x0, 200
+    addi x4, x0, 300
+    bgez x3, _test
+
+binary:
+06400113
+19000193
+06400213
+0c800213
+12c00213
+402181b3
+06400213
+0c800213
+12c00213
+fe01d8e3
+--------------------------------------
+6.it is repeated.JUST FOR DEFENDE THE PIPELINE AGAINST SLANDER. :)
+.global _boot
+.text
+_boot:
+    mv x1, x0
+    mv x2, x0
+    addi x1, x0, 1000
+    addi x6, x0, 100
+    addi x6, x0, 200
+    addi x6, x0, 300
+    addi x2, x1, 1000
+
+_test:
+  addi x6, x0, 400
+  addi x6, x0, 500
+  addi x6, x0, 600
+  sub  x2, x2, x1
+  addi x6, x0, 700
+  addi x6, x0, 800
+  addi x6, x0, 900    
+  bgez x2, _test
+
+Binary:
+00000093
+00000113
+3e800093
+06400313
+0c800313
+12c00313
+3e808113
+19000313
+1f400313
+25800313
+40110133
+2bc00313
+32000313
+38400313
+fe0152e3
+------------------------
+7.Loading from Memory
+.global _boot
+.text
+
+
+.global _boot
+.text
+_boot:
+
+  la   x1, var1    
+  NOP
+  addi x3, x0, 100
+  addi x3, x0, 200
+  addi x3, x0, 300
+  lb x2, 0(x1)
+    
+.data
+var1:
+    .word 0x00000014
+
+Binary:
+01000097
+00008093
+00000013
+06400193
+0c800193
+12c00193
+00008103
+
+---------------------------------------------------
+8.Comperhensive Test of Memory(Load and Store test):
+
+.global _boot
+.text
+_boot:  
+  la x1, variable
+  NOP    
+  addi x5, x0, 100 
+  addi x5, x0, 200
+  addi x5, x0, 300
+  addi x2, x0, 15    
+  addi x5, x0, 400    
+  addi x5, x0, 500   
+  addi x5, x0, 600
+  
+      sw x2, 0(x1)         
+  addi x5, x0, 700
+  addi x5, x0, 800
+  addi x5, x0, 900
+      lw x3, 0(x1)
+    
+.data
+variable:
+  .word 0x00000014
+
+
+Memory:
+00000014
+
+
+Binary:
+01000097
+00008093
+00000013
+06400293
+0c800293
+12c00293
+00f00113
+19000293
+1f400293
+25800293
+0020a023
+2bc00293
+32000293
+38400293
+0000a183
+
